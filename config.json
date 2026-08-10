@@ -1,0 +1,5 @@
+{
+  "server_port": 5050,
+  "domain": "localhost:5050",
+  "tunnel_port": 5051
+}
