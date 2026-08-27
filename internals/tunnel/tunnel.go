@@ -178,7 +178,6 @@ func (t *Tunnel) ForwardRequest(tunnelRequest types.TunnelRequest) (types.Tunnel
 	t.Mu.Unlock()
 	payload, err := json.Marshal(tunnelRequest)
 	if err != nil {
-		// todo: handle error
 		return types.TunnelResponse{}, errors.New("error in parsing request")
 	}
 
@@ -186,8 +185,6 @@ func (t *Tunnel) ForwardRequest(tunnelRequest types.TunnelRequest) (types.Tunnel
 	if err != nil {
 		return types.TunnelResponse{}, errors.New("error in server connection")
 	}
-	// app.ConnLock.Lock()
 	response := <-app.AppChan[tunnelRequest.ID]
-	// app.ConnLock.Unlock()
 	return response, nil
 }

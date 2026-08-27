@@ -1,8 +1,10 @@
 package server
 
 import (
+	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -27,7 +29,6 @@ func (s *Server) Init() error {
 	c := cors.AllowAll()
 	handler := c.Handler(mux)
 	err := http.ListenAndServe(strings.Join([]string{s.Host, strconv.Itoa(s.Port)}, ":"), handler)
-
 	return err
 }
 
@@ -41,6 +42,7 @@ func (s *Server) handleRequest(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		w.Write([]byte("error in reading body"))
+		return
 	}
 
 	tunnelRequest := types.TunnelRequest{
@@ -52,12 +54,25 @@ func (s *Server) handleRequest(w http.ResponseWriter, r *http.Request) {
 		ID:      uuid.New().String(),
 	}
 
+	fmt.Println(tunnelRequest.Method + " " + tunnelRequest.Path)
+
 	response, err := s.Tunnel.ForwardRequest(tunnelRequest)
 	if err != nil {
 		w.Write([]byte(err.Error()))
 		return
 	}
+	fmt.Println("Status:", response.Status)
+	if response.Status == 303 || response.Status == 302 {
+		handleRedirection(&response.Headers, appName, s.Tunnel.Domain)
+	}
 	agent.CopyHeaders(w.Header(), response.Headers)
+
+	for key, values := range w.Header() {
+		for _, value := range values {
+			fmt.Println(key + ": " + value)
+		}
+	}
+
 	w.Write([]byte(response.Body))
 }
 
@@ -78,4 +93,9 @@ func appNameFromDomain(host string) (string, error) {
 		return domains[len(domains)-3], nil
 	}
 	return "", nil
+}
+
+func handleRedirection(headers *map[string][]string, appName string, domain string) {
+	redirectURL, _ := url.Parse((*headers)["Location"][0])
+	(*headers)["Location"][0] = "http://" + appName + "." + domain + redirectURL.Path
 }

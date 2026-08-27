@@ -17,6 +17,9 @@ type Httpx struct {
 func (h *Httpx) Init() {
 	h.Client = http.Client{
 		Timeout: 60 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
 	}
 }
 
@@ -40,7 +43,7 @@ func (h *Httpx) Request(tunnelRequest types.TunnelRequest) (types.TunnelResponse
 	tunnelResponse := types.TunnelResponse{
 		Headers: resp.Header,
 		Body:    body,
-		Status:  resp.Status,
+		Status:  resp.StatusCode,
 	}
 	return tunnelResponse, nil
 }

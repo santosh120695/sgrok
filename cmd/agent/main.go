@@ -18,9 +18,11 @@ func main() {
 		Use:   "serve",
 		Short: "start serving app ",
 		Run: func(cmd *cobra.Command, args []string) {
+			config := agent.Config{}
+			config.Load()
 			a := agent.Agent{
 				Mu:         &sync.RWMutex{},
-				TunnelAddr: "129.154.252.13:5000",
+				TunnelAddr: config.TunnelAddress,
 			}
 			state := agent.State{}
 			state.Load()

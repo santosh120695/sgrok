@@ -3,6 +3,7 @@ package agent
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"sync"
@@ -39,9 +40,12 @@ func (a *Agent) Listen() {
 			buffer, err := proto.ReadFrame(a.Conn)
 			a.Mu.RUnlock()
 			if err != nil {
+				if err == io.EOF {
+					a.Conn.Close()
+					return
+				}
 				fmt.Println(err)
-				a.Conn.Close()
-				break
+				a.sendResponse(a.Conn, []byte("something went wrong"))
 			}
 
 			go func() {

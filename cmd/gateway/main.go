@@ -12,6 +12,7 @@ func main() {
 	err := config.LoadConfig()
 	if err != nil {
 		fmt.Println(err)
+		return
 	}
 
 	tunnelServer := tunnel.Tunnel{

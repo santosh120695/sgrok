@@ -45,6 +45,6 @@ type TunnelRequest struct {
 type TunnelResponse struct {
 	Body      []byte              `json:"body"`
 	Headers   map[string][]string `json:"headers"`
-	Status    string              `json:"status"`
+	Status    int                 `json:"status"`
 	RequestID string              `json:"request_id"`
 }
