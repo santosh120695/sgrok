@@ -61,7 +61,6 @@ func (s *Server) handleRequest(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(err.Error()))
 		return
 	}
-	fmt.Println("Status:", response.Status)
 	if response.Status == 303 || response.Status == 302 {
 		handleRedirection(&response.Headers, appName, s.Tunnel.Domain)
 	}

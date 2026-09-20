@@ -45,6 +45,7 @@ func main() {
 			a.Port = args[1]
 			if err != nil {
 				fmt.Println(err)
+				return
 			}
 			state.ClientID = clientID
 			state.Save()
