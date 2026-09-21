@@ -61,7 +61,7 @@ func (s *Server) handleRequest(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(err.Error()))
 		return
 	}
-	if response.Status == 303 || response.Status == 302 {
+	if isRedirectStatus(response.Status) {
 		handleRedirection(&response.Headers, appName, s.Tunnel.Domain)
 	}
 	agent.CopyHeaders(w.Header(), response.Headers)
@@ -72,12 +72,25 @@ func (s *Server) handleRequest(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	w.Write([]byte(response.Body))
+	w.WriteHeader(response.Status)
+	w.Write(response.Body)
+}
+
+func isRedirectStatus(status int) bool {
+	switch status {
+	case http.StatusMovedPermanently,
+		http.StatusFound,
+		http.StatusSeeOther,
+		http.StatusTemporaryRedirect,
+		http.StatusPermanentRedirect:
+		return true
+	default:
+		return false
+	}
 }
 
 func appNameFromDomain(host string) (string, error) {
 	host = strings.TrimPrefix(strings.TrimPrefix(host, "http://"), "https://")
-
 	domains := strings.Split(host, ".")
 
 	if len(domains) <= 2 {
@@ -95,6 +108,17 @@ func appNameFromDomain(host string) (string, error) {
 }
 
 func handleRedirection(headers *map[string][]string, appName string, domain string) {
-	redirectURL, _ := url.Parse((*headers)["Location"][0])
-	(*headers)["Location"][0] = "http://" + appName + "." + domain + redirectURL.Path
+	locations := (*headers)["Location"]
+	if len(locations) == 0 {
+		return
+	}
+
+	redirectURL, err := url.Parse(locations[0])
+	if err != nil || !redirectURL.IsAbs() {
+		return
+	}
+
+	redirectURL.Scheme = "http"
+	redirectURL.Host = appName + "." + domain
+	locations[0] = redirectURL.String()
 }

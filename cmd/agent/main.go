@@ -43,12 +43,15 @@ func main() {
 			a.ClientID = clientID
 			AppURL, err := a.Register(args[0])
 			a.Port = args[1]
+
 			if err != nil {
 				fmt.Println(err)
 				return
 			}
+
 			state.ClientID = clientID
 			state.Save()
+			
 			fmt.Println("app url: ", AppURL)
 			wg.Add(1)
 			a.Listen()
