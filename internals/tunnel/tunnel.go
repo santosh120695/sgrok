@@ -3,7 +3,6 @@ package tunnel
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net"
 	"sync"
@@ -38,7 +37,6 @@ func (t *Tunnel) Init() error {
 			go t.handleClient(conn)
 		}
 	}()
-	fmt.Println("starting gateway -> ", t.Port)
 	return nil
 }
 
@@ -88,9 +86,10 @@ loop:
 				break loop
 			}
 			if t.appNameAvailable(payload.AppName) {
-				// todo: send error response to client
-				conn.Close()
-				break loop
+				if t.Apps[payload.AppName].ClientID != payload.ClientID {
+					conn.Close()
+					break loop
+				}
 			}
 			appURL, err := t.registerNewApp(payload.AppName, payload.ClientID, conn)
 			response := types.CientAppNameResponse{

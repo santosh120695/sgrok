@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -54,8 +53,6 @@ func (s *Server) handleRequest(w http.ResponseWriter, r *http.Request) {
 		ID:      uuid.New().String(),
 	}
 
-	fmt.Println(tunnelRequest.Method + " " + tunnelRequest.Path)
-
 	response, err := s.Tunnel.ForwardRequest(tunnelRequest)
 	if err != nil {
 		w.Write([]byte(err.Error()))
@@ -65,13 +62,6 @@ func (s *Server) handleRequest(w http.ResponseWriter, r *http.Request) {
 		handleRedirection(&response.Headers, appName, s.Tunnel.Domain)
 	}
 	agent.CopyHeaders(w.Header(), response.Headers)
-
-	for key, values := range w.Header() {
-		for _, value := range values {
-			fmt.Println(key + ": " + value)
-		}
-	}
-
 	w.WriteHeader(response.Status)
 	w.Write(response.Body)
 }

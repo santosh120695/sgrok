@@ -36,9 +36,9 @@ func (a *Agent) Listen() {
 	http.Init()
 	go func() {
 		for {
-			a.Mu.RLock()
+			// a.Mu.RLock()
 			buffer, err := proto.ReadFrame(a.Conn)
-			a.Mu.RUnlock()
+			// a.Mu.RUnlock()
 			if err != nil {
 				if err == io.EOF {
 					a.Conn.Close()
