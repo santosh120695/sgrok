@@ -128,18 +128,16 @@ func (t *Tunnel) tunnelReader(appName string) {
 	for {
 		var tunnelResponse types.TunnelResponse
 		app := t.Apps[appName]
-		data, err := proto.ReadFrame(t.Apps[appName].Conn)
+		data, err := proto.ReadFrame(app.Conn)
 		if err != nil {
 			if err == io.EOF {
-				t.Apps[appName].Conn.Close()
+				app.Conn.Close()
 				break
 			}
 		}
 
 		json.Unmarshal(data, &tunnelResponse)
-		app.ConnLock.Lock()
 		app.AppChan[tunnelResponse.RequestID] <- tunnelResponse
-		app.ConnLock.Unlock()
 
 	}
 }
@@ -155,12 +153,12 @@ func (t *Tunnel) registerNewApp(name string, clientID string, conn net.Conn) (st
 	defer t.Mu.Unlock()
 	appURL := "http://" + name + "." + t.Domain
 	t.Apps[name] = types.App{
-		Name:     name,
-		ClientID: clientID,
-		Conn:     conn,
-		AppURL:   appURL,
-		ConnLock: &sync.Mutex{},
-		AppChan:  make(map[string]chan types.TunnelResponse),
+		Name:      name,
+		ClientID:  clientID,
+		Conn:      conn,
+		AppURL:    appURL,
+		ConnLock:  &sync.Mutex{},
+		AppChan:   make(map[string]chan types.TunnelResponse),
 	}
 	return appURL, nil
 }
@@ -173,6 +171,7 @@ func (t *Tunnel) ForwardRequest(tunnelRequest types.TunnelRequest) (types.Tunnel
 	}
 	app.ConnLock.Lock()
 	app.AppChan[tunnelRequest.ID] = make(chan types.TunnelResponse)
+	readChan := app.AppChan[tunnelRequest.ID]
 	app.ConnLock.Unlock()
 	t.Mu.Unlock()
 	payload, err := json.Marshal(tunnelRequest)
@@ -184,6 +183,6 @@ func (t *Tunnel) ForwardRequest(tunnelRequest types.TunnelRequest) (types.Tunnel
 	if err != nil {
 		return types.TunnelResponse{}, errors.New("error in server connection")
 	}
-	response := <-app.AppChan[tunnelRequest.ID]
+	response := <-readChan
 	return response, nil
 }

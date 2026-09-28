@@ -25,12 +25,12 @@ type ClientPingRequest struct {
 }
 
 type App struct {
-	Name     string   `json:"name"`
-	ClientID string   `json:"client_id"`
-	Conn     net.Conn `json:"conn"`
-	ConnLock *sync.Mutex
-	AppURL   string                         `json:"app_url"`
-	AppChan  map[string]chan TunnelResponse `json:"app_chan"`
+	Name      string   `json:"name"`
+	ClientID  string   `json:"client_id"`
+	Conn      net.Conn `json:"conn"`
+	ConnLock  *sync.Mutex
+	AppURL    string                         `json:"app_url"`
+	AppChan   map[string]chan TunnelResponse `json:"app_chan"`
 }
 
 type TunnelRequest struct {
