@@ -14,10 +14,11 @@ import (
 )
 
 type Tunnel struct {
-	Port   int
-	Domain string
-	Apps   map[string]types.App
-	Mu     *sync.RWMutex
+	Port          int
+	Domain        string
+	Apps          map[string]types.App
+	Mu            *sync.RWMutex
+	WriterChannel chan types.WriterChannelType
 }
 
 func (t *Tunnel) Init() error {
@@ -26,7 +27,9 @@ func (t *Tunnel) Init() error {
 		return err
 	}
 	t.Apps = make(map[string]types.App)
+	t.WriterChannel = make(chan types.WriterChannelType, 1000)
 	t.Mu = &sync.RWMutex{}
+	go t.tunnelWriter()
 
 	go func() {
 		for {
@@ -71,7 +74,7 @@ loop:
 				break loop
 			}
 
-			err = proto.WriteFrame(conn, []byte(response))
+			err = proto.WriteFrame(conn, response)
 			if err != nil {
 				conn.Close()
 				break loop
@@ -135,10 +138,16 @@ func (t *Tunnel) tunnelReader(appName string) {
 				break
 			}
 		}
-
 		json.Unmarshal(data, &tunnelResponse)
 		app.AppChan[tunnelResponse.RequestID] <- tunnelResponse
+	}
+}
 
+func (t *Tunnel) tunnelWriter() {
+	var writeRequest types.WriterChannelType
+	for {
+		writeRequest = <-t.WriterChannel
+		proto.WriteFrame(writeRequest.Conn, writeRequest.Payload)
 	}
 }
 
@@ -153,12 +162,12 @@ func (t *Tunnel) registerNewApp(name string, clientID string, conn net.Conn) (st
 	defer t.Mu.Unlock()
 	appURL := "http://" + name + "." + t.Domain
 	t.Apps[name] = types.App{
-		Name:      name,
-		ClientID:  clientID,
-		Conn:      conn,
-		AppURL:    appURL,
-		ConnLock:  &sync.Mutex{},
-		AppChan:   make(map[string]chan types.TunnelResponse),
+		Name:     name,
+		ClientID: clientID,
+		Conn:     conn,
+		AppURL:   appURL,
+		ConnLock: &sync.Mutex{},
+		AppChan:  make(map[string]chan types.TunnelResponse),
 	}
 	return appURL, nil
 }
@@ -178,11 +187,7 @@ func (t *Tunnel) ForwardRequest(tunnelRequest types.TunnelRequest) (types.Tunnel
 	if err != nil {
 		return types.TunnelResponse{}, errors.New("error in parsing request")
 	}
-
-	err = proto.WriteFrame(app.Conn, payload)
-	if err != nil {
-		return types.TunnelResponse{}, errors.New("error in server connection")
-	}
+	t.WriterChannel <- types.WriterChannelType{Conn: app.Conn, Payload: payload}
 	response := <-readChan
 	return response, nil
 }
