@@ -13,18 +13,21 @@ import (
 )
 
 type Agent struct {
-	TunnelAddr string
-	Conn       net.Conn
-	ClientID   string
-	Port       string
-	Mu         *sync.RWMutex
+	TunnelAddr    string
+	Conn          net.Conn
+	ClientID      string
+	Port          string
+	Mu            *sync.RWMutex
+	WriterChannel chan types.WriterChannelType
 }
 
-func (a Agent) Init() (net.Conn, error) {
+func (a *Agent) Init() (net.Conn, error) {
 	conn, err := net.Dial("tcp", a.TunnelAddr)
 	if err != nil {
 		return nil, err
 	}
+	a.WriterChannel = make(chan types.WriterChannelType, 1000)
+	go a.agentWriter()
 	return conn, nil
 }
 
@@ -44,6 +47,7 @@ func (a *Agent) Listen() {
 				}
 				fmt.Println(err)
 				a.sendResponse(a.Conn, []byte("something went wrong"))
+				return
 			}
 
 			go func() {
@@ -68,10 +72,7 @@ func (a *Agent) Listen() {
 					a.Conn.Write([]byte("something went wrong"))
 					return
 				}
-				if err = a.sendResponse(a.Conn, paylaod); err != nil {
-					fmt.Println(err)
-					a.Conn.Close()
-				}
+				a.WriterChannel <- types.WriterChannelType{Payload: paylaod}
 			}()
 
 		}
@@ -108,6 +109,14 @@ func (a Agent) Ping(ClientID string) (string, error) {
 	}
 
 	return payload.ClientID, nil
+}
+
+func (a *Agent) agentWriter() {
+	var writeRequest types.WriterChannelType
+	for {
+		writeRequest = <-a.WriterChannel
+		proto.WriteFrame(a.Conn, writeRequest.Payload)
+	}
 }
 
 func (a Agent) Register(name string) (string, error) {
