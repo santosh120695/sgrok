@@ -36,6 +36,7 @@ func (t *Tunnel) Init() error {
 			conn, err := listner.Accept()
 			if err != nil {
 				conn.Close()
+				continue
 			}
 			go t.handleClient(conn)
 		}
@@ -89,10 +90,13 @@ loop:
 				break loop
 			}
 			if t.appNameAvailable(payload.AppName) {
+				t.Mu.RLock()
 				if t.Apps[payload.AppName].ClientID != payload.ClientID {
 					conn.Close()
+					t.Mu.RUnlock()
 					break loop
 				}
+				t.Mu.RUnlock()
 			}
 			appURL, err := t.registerNewApp(payload.AppName, payload.ClientID, conn)
 			response := types.CientAppNameResponse{
@@ -130,7 +134,9 @@ func generateClientID() uuid.UUID {
 func (t *Tunnel) tunnelReader(appName string) {
 	for {
 		var tunnelResponse types.TunnelResponse
+		t.Mu.RLock()
 		app := t.Apps[appName]
+		t.Mu.RUnlock()
 		data, err := proto.ReadFrame(app.Conn)
 		if err != nil {
 			if err == io.EOF {
@@ -139,7 +145,9 @@ func (t *Tunnel) tunnelReader(appName string) {
 			}
 		}
 		json.Unmarshal(data, &tunnelResponse)
+		app.ConnLock.RLock()
 		app.AppChan[tunnelResponse.RequestID] <- tunnelResponse
+		app.ConnLock.RUnlock()
 	}
 }
 
@@ -166,15 +174,16 @@ func (t *Tunnel) registerNewApp(name string, clientID string, conn net.Conn) (st
 		ClientID: clientID,
 		Conn:     conn,
 		AppURL:   appURL,
-		ConnLock: &sync.Mutex{},
+		ConnLock: &sync.RWMutex{},
 		AppChan:  make(map[string]chan types.TunnelResponse),
 	}
 	return appURL, nil
 }
 
 func (t *Tunnel) ForwardRequest(tunnelRequest types.TunnelRequest) (types.TunnelResponse, error) {
-	t.Mu.Lock()
+	t.Mu.RLock()
 	app, ok := t.Apps[tunnelRequest.AppName]
+	t.Mu.RUnlock()
 	if !ok {
 		return types.TunnelResponse{}, errors.New("app not available")
 	}
@@ -182,7 +191,6 @@ func (t *Tunnel) ForwardRequest(tunnelRequest types.TunnelRequest) (types.Tunnel
 	app.AppChan[tunnelRequest.ID] = make(chan types.TunnelResponse)
 	readChan := app.AppChan[tunnelRequest.ID]
 	app.ConnLock.Unlock()
-	t.Mu.Unlock()
 	payload, err := json.Marshal(tunnelRequest)
 	if err != nil {
 		return types.TunnelResponse{}, errors.New("error in parsing request")

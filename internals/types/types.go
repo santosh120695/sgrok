@@ -28,7 +28,7 @@ type App struct {
 	Name     string   `json:"name"`
 	ClientID string   `json:"client_id"`
 	Conn     net.Conn `json:"conn"`
-	ConnLock *sync.Mutex
+	ConnLock *sync.RWMutex
 	AppURL   string                         `json:"app_url"`
 	AppChan  map[string]chan TunnelResponse `json:"app_chan"`
 }
